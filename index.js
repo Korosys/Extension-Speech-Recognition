@@ -21,6 +21,7 @@ const DEBUG_PREFIX = '<Speech Recognition module> ';
 const UPDATE_INTERVAL = 100;
 
 let inApiCall = false;
+let lastAutoSendTime = 0;
 
 let sttProviders = {
     None: null,
@@ -156,7 +157,15 @@ async function processTranscript(transcript) {
                             console.debug(DEBUG_PREFIX + 'message mapping found: ', key, '=>', extension_settings.speech_recognition.messageMapping[key]);
                             $('#send_textarea').val(message);
 
-                            if (messageMode == 'auto_send') await getContext().generate();
+                            if (messageMode == 'auto_send') {
+                                const currentTime = Date.now();
+                                if (currentTime - lastAutoSendTime < 10000) {
+                                    console.debug(DEBUG_PREFIX + 'Auto send cooldown active');
+                                    return;
+                                }
+                                lastAutoSendTime = currentTime;
+                                await getContext().generate();
+                            }
                             return;
                         }
                     }
@@ -168,6 +177,13 @@ async function processTranscript(transcript) {
 
             switch (messageMode) {
                 case 'auto_send':
+                    const currentTime = Date.now();
+                    if (currentTime - lastAutoSendTime < 10000) {
+                        console.debug(DEBUG_PREFIX + 'Auto send cooldown active');
+                        return;
+                    }
+                    lastAutoSendTime = currentTime;
+                    
                     // clear message area to avoid double message
                     textarea.val('')[0].dispatchEvent(new Event('input', { bubbles: true }));
 
